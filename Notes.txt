@@ -1,5 +1,3 @@
-# LOG8415_Final_Project
-
 #MySQL StandAlone
 
 # Create security group with 3 inbound and outbound rules port 22 80 443 custom TCP 0.00.00/
