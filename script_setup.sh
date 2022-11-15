@@ -6,9 +6,10 @@ pip3 install boto3
 pip3 install paramiko
 pip3 install pymysql
 pip3 install sshtunnel
+pip3 install pandas 
 
 # Move key to project folder
-mv ~/Downloads/labsuser.pem ~/Documents/LOG8415/LOG8415_Final_Project/
+mv -f ~/Downloads/labsuser.pem ~/Documents/LOG8415/LOG8415_Final_Project/
 
 # Change the permissions on the key to be read only
 chmod 400 labsuser.pem
