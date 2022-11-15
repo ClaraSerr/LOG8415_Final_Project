@@ -129,3 +129,4 @@ dmypy.json
 .pyre/
 
 labsuser.pem
+script_setup.sh
