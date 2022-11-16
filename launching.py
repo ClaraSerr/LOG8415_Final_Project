@@ -39,6 +39,7 @@ def create_security_group(Vpcid, ports):
                                              VpcId=Vpcid,
                                              )
         security_group_id = security_group.group_id
+        # TODO TO DO add inbound rule ALL ICMP - IPv4 
         for port in ports: # In our use case, ports = [22, 80, 443]
             security_group.authorize_ingress(
                 DryRun=False,
@@ -172,7 +173,8 @@ def create_commands_cluster():
         'sudo chmod -R 777 /etc/profile.d',
         'echo "export MYSQLC_HOME=/opt/mysqlcluster/home/mysqlc" > /etc/profile.d/mysqlc.sh',
         'echo "export PATH=$MYSQLC_HOME/bin:$PATH" >> /etc/profile.d/mysqlc.sh',
-        'source /etc/profile.d/mysqlc.sh'
+        'source /etc/profile.d/mysqlc.sh',
+        'sudo apt-get update && sudo apt-get -y install libncurses5'
     ]
 
     return commands
@@ -223,6 +225,7 @@ nodeid=5
 nodeid=50" > config.ini''',
         'cd /opt/mysqlcluster/home/mysqlc',
         'scripts/mysql_install_db --no-defaults --datadir=/opt/mysqlcluster/deploy/mysqld_data',
+        'sudo /opt/mysqlcluster/home/mysqlc/bin/ndb_mgmd -f /opt/mysqlcluster/deploy/conf/config.ini --initial --configdir=/opt/mysqlcluster/deploy/conf/',
         
 
     ]
@@ -240,7 +243,7 @@ def create_commands_cluster_slaves(DNS_addresses):
     """
     commands = [
         'mkdir -p /opt/mysqlcluster/deploy/ndb_data',
-        f'ndbd -c {DNS_addresses["Cluster_Master"]}'
+        f'sudo /opt/mysqlcluster/home/mysqlc/bin/ndbd -c {DNS_addresses["Cluster_Master"]}'
     ]
 
     return commands
@@ -278,9 +281,9 @@ def main():
         MySQL[key].wait_until_running()
         # Reload the instance attributes
         MySQL[key].load()
-        DNS_addresses[key] = MySQL[key].public_dns_name
+        DNS_addresses[key] = MySQL[key].private_dns_name
         IP_addresses[key] = MySQL[key].public_ip_address
-        print("DNS = ",MySQL[key].public_dns_name)
+        print("DNS = ",MySQL[key].private_dns_name)
         print("IPV4 = ",MySQL[key].public_ip_address)
         # Enable detailed monitoring
         MySQL[key].monitor(
