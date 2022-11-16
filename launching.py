@@ -5,6 +5,7 @@ import pymysql
 import time
 import sshtunnel
 from sshtunnel import SSHTunnelForwarder
+import pandas as pd
 
 # import as global variables
 ec2_RESSOURCE = boto3.resource('ec2', region_name='us-east-1')
@@ -124,7 +125,7 @@ def create_instance(instance_type,keyname,name,security_id,availability_zone):
     return Instance[0]
 
 
-def create_commands_sakila():
+def create_commands_stand_alone():
     """
     Creates a lists of the commands to run on the instances we connected into via paramiko
 
@@ -134,32 +135,114 @@ def create_commands_sakila():
         list of the commands to run
     """
     
-    commands = ['sudo apt-get update', 
-    'yes | sudo apt-get install mysql-server',
-    # Download Sakila database
-    'wget https://downloads.mysql.com/docs/sakila-db.tar.gz',
+    commands = [
+        'sudo apt-get update', 
+        'yes | sudo apt-get install mysql-server',
+        # Download Sakila database
+        'wget https://downloads.mysql.com/docs/sakila-db.tar.gz',
 
-    # Unpack sakila
-    'tar -xf sakila-db.tar.gz',
-    # Remove compressed folder
-    'rm sakila-db.tar.gz'
+        # Unpack sakila
+        'tar -xf sakila-db.tar.gz',
+        # Remove compressed folder
+        'rm sakila-db.tar.gz',
+        'sudo mysql -e "SOURCE sakila-db/sakila-schema.sql;"',
+        'sudo mysql -e "SOURCE sakila-db/sakila-data.sql;"',
+        'sudo mysql -e "USE sakila;"'
+    ]
+    return commands
+
+def create_commands_cluster():
+    """
+    Creates a lists of the commands to run on the cluster instances we connected into via paramiko
+
+    Returns
+    -------
+    list
+        list of the commands to run
+    """
+    commands = [
+        'sudo apt-get update',
+        'sudo mkdir -p /opt/mysqlcluster/home',
+        'sudo chmod -R 777 /opt/mysqlcluster',
+        'cd /opt/mysqlcluster/home',
+        'wget http://dev.mysql.com/get/Downloads/MySQL-Cluster-7.2/mysql-cluster-gpl-7.2.1-linux2.6-x86_64.tar.gz',
+        'tar xvf mysql-cluster-gpl-7.2.1-linux2.6-x86_64.tar.gz',
+        'ln -s mysql-cluster-gpl-7.2.1-linux2.6-x86_64 mysqlc',
+        'rm mysql-cluster-gpl-7.2.1-linux2.6-x86_64.tar.gz',
+        'sudo chmod -R 777 /etc/profile.d',
+        'echo "export MYSQLC_HOME=/opt/mysqlcluster/home/mysqlc" > /etc/profile.d/mysqlc.sh',
+        'echo "export PATH=$MYSQLC_HOME/bin:$PATH" >> /etc/profile.d/mysqlc.sh',
+        'source /etc/profile.d/mysqlc.sh'
     ]
 
-    '''
+    return commands
 
-    # python script containing the application definition
-    ''''''echo "import sys
-from flask import Flask
-app = Flask(__name__)
-@app.route('/{}')
-def myFlaskApp():
-    return 'Instance number {} is responding now!'
-    
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80) " | sudo tee app.py ''''''.format(cluster_number,instance_number),
-    # nohup is used to keep the application running
-    # the argument is the public IPV4 address of the instance, used to define the server name 
-    'sudo nohup env "PATH=$PATH" python3 app.py &']'''
+def create_commands_cluster_master(DNS_addresses):
+    """
+    Creates a lists of the commands to run on the master instances we connected into via paramiko
+
+    Returns
+    -------
+    list
+        list of the commands to run
+    """
+    commands = [
+        'mkdir -p /opt/mysqlcluster/deploy',
+        'cd /opt/mysqlcluster/deploy',
+        'mkdir conf',
+        'mkdir mysqld_data',
+        'mkdir ndb_data',
+        'cd conf',
+        '''echo "[mysqld]
+ndbcluster
+datadir=/opt/mysqlcluster/deploy/mysqld_data
+basedir=/opt/mysqlcluster/home/mysqlc
+port=3306" > my.cnf''',
+        f'''echo "[ndb_mgmd]
+hostname={DNS_addresses["Cluster_Master"]}
+datadir=/opt/mysqlcluster/deploy/ndb_data
+nodeid=1
+
+[ndbd default]
+noofreplicas=3
+datadir=/opt/mysqlcluster/deploy/ndb_data
+
+[ndbd]
+hostname={DNS_addresses["Cluster_Slave_1"]}
+nodeid=3
+
+[ndbd]
+hostname={DNS_addresses["Cluster_Slave_2"]}
+nodeid=4
+
+[ndbd]
+hostname={DNS_addresses["Cluster_Slave_3"]}
+nodeid=5
+
+[mysqld]
+nodeid=50" > config.ini''',
+        'cd /opt/mysqlcluster/home/mysqlc',
+        'scripts/mysql_install_db --no-defaults --datadir=/opt/mysqlcluster/deploy/mysqld_data',
+        
+
+    ]
+
+    return commands
+
+def create_commands_cluster_slaves(DNS_addresses):
+    """
+    Creates a lists of the commands to run on the slave instances we connected into via paramiko
+
+    Returns
+    -------
+    list
+        list of the commands to run
+    """
+    commands = [
+        'mkdir -p /opt/mysqlcluster/deploy/ndb_data',
+        f'ndbd -c {DNS_addresses["Cluster_Master"]}'
+    ]
+
     return commands
 
 def main():
@@ -228,24 +311,27 @@ def main():
         '''print("Executing {}".format( commands_sakila[-1] ))
         stdin , stdout, stderr = c.exec_command(commands_sakila[-1])
         print("Go to http://"+str(IP_addresses_t2[i]))'''
-        with SSHTunnelForwarder(
+        with sshtunnel.open_tunnel(
             (IP_addresses[key], 22),
             ssh_username="ubuntu",
             ssh_pkey=k,
-            remote_bind_address=(IP_addresses[key], 22)) as tunnel:
-            conn = pymysql.connect(host='127.0.0.1', user="ubuntu",
-                    port=tunnel.local_bind_port)
+            remote_bind_address=('127.0.0.1', 3306),
+            local_bind_address=('127.0.0.1', 3306)) as tunnel:
+            client = paramiko.SSHClient()
+            client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            client.connect('127.0.0.1', 3306)
+            #conn = pymysql.connect(host='127.0.0.1', user="ubuntu", port=tunnel.local_bind_port)
             query_1 = '''SOURCE sakila-db/sakila-schema.sql;'''
             query_2 = '''SOURCE sakila-db/sakila-data.sql;'''
             query_3 = '''USE sakila;'''
 
-            data = pd.read_sql_query(query_1, conn)
+            data = pd.read_sql_query(query_1, client)
             print(data)
-            data = pd.read_sql_query(query_2, conn)
+            data = pd.read_sql_query(query_2, client)
             print(data)
-            data = pd.read_sql_query(query_3, conn)
+            data = pd.read_sql_query(query_3, client)
             print(data)
-            conn.close()
+            client.close()
 
     time.sleep(5)
     
