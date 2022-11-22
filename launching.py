@@ -138,7 +138,7 @@ def create_instance(instance_type,keyname,name,security_id,availability_zone):
         InstanceType=instance_type,
         KeyName=keyname,
         MinCount=1,
-        MaxCount=1,,
+        MaxCount=1,
         # Specify the number of the instances in its Tag Name
         TagSpecifications=[
             {
@@ -496,7 +496,7 @@ def main():
     #On the Custer Master, set up user, password and sakila
     ssh_connect_and_execute(c, DNS_public_addresses["Cluster_Master"], k, create_commands_cluster_master_3())
     time.sleep(10)
-    
+
     print(DNS_public_addresses)
     c.close()
 
