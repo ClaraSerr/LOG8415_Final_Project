@@ -1,0 +1,78 @@
+sysbench 1.0.20 (using system LuaJIT 2.1.0-beta3)
+ 
+ Running the test with following options:
+ Number of threads: 4
+ Initializing random number generator from current time
+ 
+ 
+ Initializing worker threads...
+ 
+ Threads started!
+ 
+ Latency histogram (values are in milliseconds)
+        value  ------------- distribution ------------- count
+        5.879 |                                         1
+        5.986 |                                         2
+        6.095 |                                         1
+        6.205 |                                         1
+        6.318 |                                         2
+        6.433 |*                                        25
+        6.550 |***                                      94
+        6.669 |**********                               283
+        6.790 |*********************                    611
+        6.913 |**********************************       998
+        7.039 |**************************************** 1176
+        7.167 |**********************************       994
+        7.297 |******************                       539
+        7.430 |*********                                275
+        7.565 |*****                                    138
+        7.702 |**                                       72
+        7.842 |**                                       55
+        7.985 |*                                        33
+        8.130 |*                                        42
+        8.277 |**                                       48
+        8.428 |**                                       53
+        8.581 |**                                       52
+        8.737 |*                                        30
+        8.895 |*                                        16
+        9.057 |*                                        17
+        9.222 |                                         8
+        9.389 |                                         5
+        9.560 |                                         3
+        9.910 |                                         3
+       10.274 |                                         1
+       10.460 |                                         2
+       10.651 |                                         1
+       13.460 |                                         2
+       13.953 |                                         1
+       14.995 |                                         1
+       25.278 |                                         2
+       25.737 |                                         1
+       31.945 |                                         1
+  
+ SQL statistics:
+     queries performed:
+         read:                            78246
+         write:                           0
+         other:                           11178
+         total:                           89424
+     transactions:                        5589   (558.29 per sec.)
+     queries:                             89424  (8932.65 per sec.)
+     ignored errors:                      0      (0.00 per sec.)
+     reconnects:                          0      (0.00 per sec.)
+ 
+ General statistics:
+     total time:                          10.0091s
+     total number of events:              5589
+ 
+ Latency (ms):
+          min:                                    5.91
+          avg:                                    7.16
+          max:                                   31.89
+          95th percentile:                        8.13
+          sum:                                40002.15
+ 
+ Threads fairness:
+     events (avg/stddev):           1397.2500/0.83
+     execution time (avg/stddev):   10.0005/0.00
+ 

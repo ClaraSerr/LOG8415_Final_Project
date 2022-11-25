@@ -1,0 +1,86 @@
+sysbench 1.0.20 (using system LuaJIT 2.1.0-beta3)
+ 
+ Running the test with following options:
+ Number of threads: 8
+ Initializing random number generator from current time
+ 
+ 
+ Initializing worker threads...
+ 
+ Threads started!
+ 
+ Latency histogram (values are in milliseconds)
+        value  ------------- distribution ------------- count
+       10.651 |                                         1
+       12.081 |                                         1
+       12.524 |                                         1
+       13.219 |                                         5
+       13.460 |                                         7
+       13.704 |**                                       48
+       13.953 |********                                 159
+       14.207 |******************                       380
+       14.465 |*******************************          642
+       14.728 |**************************************** 826
+       14.995 |************************************     741
+       15.268 |***************************              559
+       15.545 |*******************                      393
+       15.828 |*************                            273
+       16.115 |***********                              217
+       16.408 |*******                                  149
+       16.706 |*****                                    113
+       17.010 |****                                     79
+       17.319 |***                                      70
+       17.633 |***                                      59
+       17.954 |***                                      61
+       18.280 |***                                      52
+       18.612 |**                                       47
+       18.950 |**                                       48
+       19.295 |**                                       32
+       19.645 |**                                       31
+       20.002 |*                                        25
+       20.366 |*                                        23
+       20.736 |*                                        21
+       21.112 |*                                        19
+       21.496 |*                                        13
+       21.886 |                                         7
+       22.284 |                                         6
+       22.689 |                                         6
+       23.101 |                                         4
+       23.521 |                                         5
+       23.948 |                                         5
+       24.384 |                                         6
+       24.827 |                                         1
+       25.278 |                                         2
+       27.659 |                                         2
+       49.213 |                                         4
+       50.107 |                                         1
+       51.018 |                                         1
+       55.824 |                                         1
+       56.839 |                                         1
+  
+ SQL statistics:
+     queries performed:
+         read:                            72058
+         write:                           0
+         other:                           10294
+         total:                           82352
+     transactions:                        5147   (513.69 per sec.)
+     queries:                             82352  (8219.03 per sec.)
+     ignored errors:                      0      (0.00 per sec.)
+     reconnects:                          0      (0.00 per sec.)
+ 
+ General statistics:
+     total time:                          10.0168s
+     total number of events:              5147
+ 
+ Latency (ms):
+          min:                                   10.73
+          avg:                                   15.55
+          max:                                   57.26
+          95th percentile:                       18.95
+          sum:                                80013.13
+ 
+ Threads fairness:
+     events (avg/stddev):           643.3750/2.34
+     execution time (avg/stddev):   10.0016/0.00
+ 

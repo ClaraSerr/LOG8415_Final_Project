@@ -172,6 +172,8 @@ def create_commands_stand_alone():
         'sudo apt-get update', 
         'yes | sudo apt-get upgrade',
         'yes | sudo apt-get install mysql-server',
+        # install sysbench
+        "yes | sudo apt-get install sysbench",
 
         # Download Sakila database
         'wget https://downloads.mysql.com/docs/sakila-db.tar.gz',
@@ -201,6 +203,9 @@ def create_commands_cluster():
     """
     commands = [
         'sudo apt-get update',
+        # install sysbench
+        "yes | sudo apt-get install sysbench",
+
         'sudo mkdir -p /opt/mysqlcluster/home',
         # give root permissions to the whole folder
         'sudo chmod -R 777 /opt/mysqlcluster',
@@ -348,7 +353,28 @@ def create_commands_cluster_master_3():
 
     return commands
 
-def ssh_connect_and_execute(paramiko_client, DNS_public_address, paramiko_key, commands):
+def create_commands_sysbenchmark(threads, tables, mode, options="", table_size=100000):
+    """
+    Creates a lists of the commands to run the MySQL Benchmark with Sysbench
+
+    Returns
+    -------
+    list
+        list of the commands to run
+    """
+    commands = [
+        # create read queries
+        f"sudo sysbench {mode} --table-size={table_size} --threads={threads} --tables={tables} --mysql-db=sakila --mysql-user=root --db-driver=mysql {options} prepare",
+        # run read queries
+        f"sudo sysbench {mode} --histogram --table-size={table_size} --threads={threads} --tables={tables} --mysql-db=sakila --mysql-user=root --db-driver=mysql {options} run",
+        # cleanup data
+        f"sudo sysbench {mode} --table-size={table_size} --threads={threads} --tables={tables} --mysql-db=sakila --mysql-user=root --db-driver=mysql --db-ps-mode=disable {options} cleanup"
+    ]
+
+    return commands
+
+
+def ssh_connect_and_execute(paramiko_client, DNS_public_address, paramiko_key, commands, print_std=True):
     """
     Connects to the instance via paramiko and executes the given commands
     Prints out the stdout of the commands
@@ -363,7 +389,8 @@ def ssh_connect_and_execute(paramiko_client, DNS_public_address, paramiko_key, c
         the labsuser.pem key used to connect to the AWS session
     commands: list of str
         list of the bash commands to run one after another on the instance
-
+    print_std: bool (optional)
+        By default True, will print the stdout. If False, doesn't print anything
     Returns
     -------
     None
@@ -376,7 +403,7 @@ def ssh_connect_and_execute(paramiko_client, DNS_public_address, paramiko_key, c
         print("Executing {}".format( command ))
         stdin , stdout, stderr = paramiko_client.exec_command(command)
 
-        while True:
+        while print_std:
             print(stdout.readline())
             if stdout.channel.exit_status_ready():
                 break
@@ -385,10 +412,11 @@ def ssh_connect_and_execute(paramiko_client, DNS_public_address, paramiko_key, c
 
     return None
 
-def ssh_connect_and_execute_no_print(paramiko_client, DNS_public_address, paramiko_key, commands):
+
+def ssh_connect_and_execute_save(paramiko_client, DNS_public_address, paramiko_key, commands, output_name, readline_start=False, readline_stop=False):
     """
     Connects to the instance via paramiko and executes the given commands
-    Doesn't print out anything so it can keep the last process up and running
+    Prints out the stdout of the commands
 
     Parameters
     ----------
@@ -400,7 +428,8 @@ def ssh_connect_and_execute_no_print(paramiko_client, DNS_public_address, parami
         the labsuser.pem key used to connect to the AWS session
     commands: list of str
         list of the bash commands to run one after another on the instance
-
+    print_std: bool (optional)
+        By default True, will print the stdout. If False, doesn't print anything
     Returns
     -------
     None
@@ -412,7 +441,32 @@ def ssh_connect_and_execute_no_print(paramiko_client, DNS_public_address, parami
     for command in commands:
         print("Executing {}".format( command ))
         stdin , stdout, stderr = paramiko_client.exec_command(command)
-    
+        if command.split(" ")[-1]=="run":
+            output = open(f'{output_name}.txt','w+')
+            output.write(" ".join(stdout.readlines()))
+            output.close()
+        else:
+            print(stdout.read())
+            print(stderr.read())
+
+
+        # impr=False
+        # while True:
+        #     temp_line = stdout.readline()
+        #     if temp_line==readline_start:
+        #         impr=True
+        #         output = open(f'{output_name}.txt','w+')
+        #     if temp_line==readline_stop:
+        #         output.close()
+        #         impr=False
+        #     if impr:
+        #         output.write(temp_line)
+        #     print(temp_line)
+        #     if stdout.channel.exit_status_ready() and not(impr):
+        #         break
+        
+        time.sleep(5)
+
     time.sleep(10)
 
     return None
@@ -463,7 +517,7 @@ def main():
         IP_addresses[instance] = MySQL[instance].public_ip_address
         print("DNS public = ",MySQL[instance].public_dns_name)
         print("DNS private = ",MySQL[instance].private_dns_name)
-        print("IPV4 = ",MySQL[instance].public_ip_address)
+        print("IPV4 = ", MySQL[instance].public_ip_address)
     
     # Configure SSH connection to AWS
     k = paramiko.RSAKey.from_private_key_file("labsuser.pem")
@@ -490,11 +544,30 @@ def main():
         ssh_connect_and_execute(c, DNS_public_addresses[f"Cluster_Slave_{i}"], k, create_commands_cluster_slaves(DNS_private_addresses))
 
     #On the Cluster_Master, start the mysqlc management node. We need to wait for the process to iddle before proceeding
-    ssh_connect_and_execute_no_print(c, DNS_public_addresses["Cluster_Master"], k, create_commands_cluster_master_2())
+    ssh_connect_and_execute(c, DNS_public_addresses["Cluster_Master"], k, create_commands_cluster_master_2(), False)
     time.sleep(180)
 
     #On the Custer Master, set up user, password and sakila
     ssh_connect_and_execute(c, DNS_public_addresses["Cluster_Master"], k, create_commands_cluster_master_3())
+
+
+    # Benchmark the MySQL Stand Alone
+    for i in range(1,4):
+        ssh_connect_and_execute_save(c, DNS_public_addresses["Stand_Alone"], k, create_commands_sysbenchmark(4, 4, "oltp_read_only"),f"output_stand_alone_read_t4_{i}")
+        ssh_connect_and_execute_save(c, DNS_public_addresses["Stand_Alone"], k, create_commands_sysbenchmark(8, 8, "oltp_read_only"),f"output_stand_alone_read_t8_{i}")
+        ssh_connect_and_execute_save(c, DNS_public_addresses["Stand_Alone"], k, create_commands_sysbenchmark(2, 4, "oltp_read_write --delete_inserts=2 --index_updates=2 --non_index_updates=2"),f"output_stand_alone_write_t2_{i}")
+        ssh_connect_and_execute_save(c, DNS_public_addresses["Stand_Alone"], k, create_commands_sysbenchmark(4, 10, "oltp_read_write --delete_inserts=5 --index_updates=5 --non_index_updates=5"),f"output_stand_alone_write_t4_{i}")
+
+
+    # Benchmark the MySQL Cluster
+    for i in range(1,4):
+        ssh_connect_and_execute_save(c, DNS_public_addresses["Cluster_Master"], k, create_commands_sysbenchmark(4, 4, "oltp_read_only", "--mysql-host=127.0.0.1 --mysql-password=MyNewPass"),f"output_cluster_read_t4_{i}")
+        ssh_connect_and_execute_save(c, DNS_public_addresses["Cluster_Master"], k, create_commands_sysbenchmark(8, 8, "oltp_read_only", "--mysql-host=127.0.0.1 --mysql-password=MyNewPass"),f"output_cluster_read_t8_{i}")
+        ssh_connect_and_execute_save(c, DNS_public_addresses["Cluster_Master"], k, create_commands_sysbenchmark(2, 4, "oltp_read_write --delete_inserts=2 --index_updates=2 --non_index_updates=2", "--mysql-host=127.0.0.1 --mysql-password=MyNewPass"),f"output_cluster_write_t2_{i}")
+        ssh_connect_and_execute_save(c, DNS_public_addresses["Cluster_Master"], k, create_commands_sysbenchmark(4, 10, "oltp_read_write  --delete_inserts=5 --index_updates=5 --non_index_updates=5", "--mysql-host=127.0.0.1 --mysql-password=MyNewPass"),f"output_cluster_write_t4_{i}")
+
+
+
     time.sleep(10)
 
     print(DNS_public_addresses)
