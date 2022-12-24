@@ -95,19 +95,19 @@ def main():
 
 
     # Benchmark the MySQL Stand Alone
-    for i in range(1,4):
-        ssh_connect_and_execute_save(c, DNS_public_addresses["Stand_Alone"], k, create_commands_sysbenchmark(4, 4, "oltp_read_only"),f"output_stand_alone_read_t4_{i}")
-        ssh_connect_and_execute_save(c, DNS_public_addresses["Stand_Alone"], k, create_commands_sysbenchmark(8, 8, "oltp_read_only"),f"output_stand_alone_read_t8_{i}")
-        ssh_connect_and_execute_save(c, DNS_public_addresses["Stand_Alone"], k, create_commands_sysbenchmark(2, 4, "oltp_read_write --delete_inserts=2 --index_updates=2 --non_index_updates=2"),f"output_stand_alone_write_t2_{i}")
-        ssh_connect_and_execute_save(c, DNS_public_addresses["Stand_Alone"], k, create_commands_sysbenchmark(4, 10, "oltp_read_write --delete_inserts=5 --index_updates=5 --non_index_updates=5"),f"output_stand_alone_write_t4_{i}")
+    # for i in range(1,4):
+    #     ssh_connect_and_execute_save(c, DNS_public_addresses["Stand_Alone"], k, create_commands_sysbenchmark(4, 4, "oltp_read_only"),f"output_stand_alone_read_t4_{i}")
+    #     ssh_connect_and_execute_save(c, DNS_public_addresses["Stand_Alone"], k, create_commands_sysbenchmark(8, 8, "oltp_read_only"),f"output_stand_alone_read_t8_{i}")
+    #     ssh_connect_and_execute_save(c, DNS_public_addresses["Stand_Alone"], k, create_commands_sysbenchmark(2, 4, "oltp_read_write --delete_inserts=2 --index_updates=2 --non_index_updates=2"),f"output_stand_alone_write_t2_{i}")
+    #     ssh_connect_and_execute_save(c, DNS_public_addresses["Stand_Alone"], k, create_commands_sysbenchmark(4, 10, "oltp_read_write --delete_inserts=5 --index_updates=5 --non_index_updates=5"),f"output_stand_alone_write_t4_{i}")
 
 
-    # Benchmark the MySQL Cluster
-    for i in range(1,4):
-        ssh_connect_and_execute_save(c, DNS_public_addresses["Cluster_Master"], k, create_commands_sysbenchmark(4, 4, "oltp_read_only", "--mysql-host=127.0.0.1 --mysql-password=MyNewPass"),f"output_cluster_read_t4_{i}")
-        ssh_connect_and_execute_save(c, DNS_public_addresses["Cluster_Master"], k, create_commands_sysbenchmark(8, 8, "oltp_read_only", "--mysql-host=127.0.0.1 --mysql-password=MyNewPass"),f"output_cluster_read_t8_{i}")
-        ssh_connect_and_execute_save(c, DNS_public_addresses["Cluster_Master"], k, create_commands_sysbenchmark(2, 4, "oltp_read_write --delete_inserts=2 --index_updates=2 --non_index_updates=2", "--mysql-host=127.0.0.1 --mysql-password=MyNewPass"),f"output_cluster_write_t2_{i}")
-        ssh_connect_and_execute_save(c, DNS_public_addresses["Cluster_Master"], k, create_commands_sysbenchmark(4, 10, "oltp_read_write  --delete_inserts=5 --index_updates=5 --non_index_updates=5", "--mysql-host=127.0.0.1 --mysql-password=MyNewPass"),f"output_cluster_write_t4_{i}")
+    # # Benchmark the MySQL Cluster
+    # for i in range(1,4):
+    #     ssh_connect_and_execute_save(c, DNS_public_addresses["Cluster_Master"], k, create_commands_sysbenchmark(4, 4, "oltp_read_only", "--mysql-host=127.0.0.1 --mysql-password=MyNewPass"),f"output_cluster_read_t4_{i}")
+    #     ssh_connect_and_execute_save(c, DNS_public_addresses["Cluster_Master"], k, create_commands_sysbenchmark(8, 8, "oltp_read_only", "--mysql-host=127.0.0.1 --mysql-password=MyNewPass"),f"output_cluster_read_t8_{i}")
+    #     ssh_connect_and_execute_save(c, DNS_public_addresses["Cluster_Master"], k, create_commands_sysbenchmark(2, 4, "oltp_read_write --delete_inserts=2 --index_updates=2 --non_index_updates=2", "--mysql-host=127.0.0.1 --mysql-password=MyNewPass"),f"output_cluster_write_t2_{i}")
+    #     ssh_connect_and_execute_save(c, DNS_public_addresses["Cluster_Master"], k, create_commands_sysbenchmark(4, 10, "oltp_read_write  --delete_inserts=5 --index_updates=5 --non_index_updates=5", "--mysql-host=127.0.0.1 --mysql-password=MyNewPass"),f"output_cluster_write_t4_{i}")
 
     time.sleep(10)
 
