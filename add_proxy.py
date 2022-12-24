@@ -53,6 +53,7 @@ def create_commands_flask(key, access_key_id, secret_access_key, session_token):
     'sudo pip3 install pandas',
     'sudo pip3 install awscli',
     'sudo pip3 install boto3',
+    'sudo pip3 install pythonping',
     '''echo '{}' >> key.pem'''.format(key),
     'sudo chmod 400 key.pem',
     f'''echo "from flask import Flask, request
@@ -62,17 +63,21 @@ import pymysql
 import pandas as pd
 import paramiko
 import random
+import time
+from pythonping import ping
+
 
 ec2_CLIENT = boto3.client('ec2',region_name='us-east-1',
     aws_access_key_id='{access_key_id}',
     aws_secret_access_key='{secret_access_key}',
     aws_session_token='{session_token}')
+
 '''+'''
 app = Flask(__name__)
 
 @app.route('/')
 def hello():
-    return 'Hello, Forld!'
+    return 'Hello, World!'
 
 @app.route('/query', methods=['POST'])
 def query_database():
@@ -82,24 +87,19 @@ def query_database():
     # Parse the request data
     data = request.get_json()
     mode = data['mode']
-    host_ = data['host']
-    port = data['port']
     ssh_host = Master_ip
-    ssh_user = data['ssh_user']
     ssh_key = paramiko.RSAKey.from_private_key_file('key.pem')
-    db_user = data['db_user']
-    db_password = data['db_password']
-    db_name = data['db_name']
     query = data['query']
+
 
     if mode == 1:    
         with SSHTunnelForwarder(
                 (ssh_host, 22),
-                ssh_username=ssh_user,
+                ssh_username='ubuntu',
                 ssh_pkey=ssh_key,
-                remote_bind_address=('127.0.0.1', port)) as tunnel:
-            conn = pymysql.connect(host=host_, user=db_user,
-                    passwd=db_password, db=db_name,
+                remote_bind_address=('127.0.0.1', 3306)) as tunnel:
+            conn = pymysql.connect(host='127.0.0.1', user='root',
+                    passwd='MyNewPass', db='sakila',
                     port=tunnel.local_bind_port)
             received = pd.read_sql_query(query, conn)
             conn.close()
@@ -111,12 +111,12 @@ def query_database():
         
         with SSHTunnelForwarder(
                 (Slave_ip, 22),
-                ssh_username=ssh_user,
+                ssh_username='ubuntu',
                 ssh_pkey=ssh_key,
-                remote_bind_address=(ssh_host, port),
-                local_bind_address=('127.0.0.1', port)) as tunnel:
-            conn = pymysql.connect(host=host_, user=db_user,
-                    passwd=db_password, db=db_name,
+                remote_bind_address=(ssh_host, 3306),
+                local_bind_address=('127.0.0.1', 3306)) as tunnel:
+            conn = pymysql.connect(host='127.0.0.1', user='myapp',
+                    passwd='MyNewPass', db='sakila',
                     port=tunnel.local_bind_port)
             received = pd.read_sql_query(query, conn)
             conn.close()
@@ -125,25 +125,27 @@ def query_database():
         instance_slave_1 = ec2_CLIENT.describe_instances(Filters=[{'Name': 'tag:Name', 'Values': ['mySQL_Cluster_Slave_1']}, {'Name': 'instance-state-name', 'Values': ['running']}])
         instance_slave_2 = ec2_CLIENT.describe_instances(Filters=[{'Name': 'tag:Name', 'Values': ['mySQL_Cluster_Slave_2']}, {'Name': 'instance-state-name', 'Values': ['running']}])
         instance_slave_3 = ec2_CLIENT.describe_instances(Filters=[{'Name': 'tag:Name', 'Values': ['mySQL_Cluster_Slave_3']}, {'Name': 'instance-state-name', 'Values': ['running']}])
-        Slave_id_1 = instance_slave['Reservations'][0]['Instances'][0]['InstanceId']
-        Slave_id_2 = instance_slave['Reservations'][0]['Instances'][0]['InstanceId']
-        Slave_id_3 = instance_slave['Reservations'][0]['Instances'][0]['InstanceId']
-
+        Slave_id_1 = instance_slave_1['Reservations'][0]['Instances'][0]['InstanceId']
+        Slave_id_2 = instance_slave_2['Reservations'][0]['Instances'][0]['InstanceId']
+        Slave_id_3 = instance_slave_3['Reservations'][0]['Instances'][0]['InstanceId']
+        slave_instances=[instance_slave_1, instance_slave_2, instance_slave_3]
+        Slave_list=[Slave_id_1, Slave_id_2, Slave_id_3]
         PINGS={}
-        PINGS[f'Slave_id_1']=ec2_CLIENT.ping(InstanceId=Slave_id_1)['Latency']['Value']
-        PINGS[f'Slave_id_2']=ec2_CLIENT.ping(InstanceId=Slave_id_2)['Latency']['Value']
-        PINGS[f'Slave_id_3']=ec2_CLIENT.ping(InstanceId=Slave_id_3)['Latency']['Value']
+        for i in range(1,4):
+            response_list = ping(slave_instances[i-1]['Reservations'][0]['Instances'][0]['PublicIpAddress'], size=40, count=10)
+            PINGS[Slave_list[i-1]]=response_list.rtt_avg_ms
 
         instance_id_min = min(PINGS, key=PINGS.get)
-        instance_ip=ec2_CLIENT.describe_instances(InstanceIds=[instance_id])['Reservations'][0]['Instances'][0]['PublicIpAddress']
+        instance_ip=ec2_CLIENT.describe_instances(InstanceIds=[instance_id_min])['Reservations'][0]['Instances'][0]['PublicIpAddress']
+        
         with SSHTunnelForwarder(
-                (Slave_ip, 22),
-                ssh_username=ssh_user,
+                (instance_ip, 22),
+                ssh_username='ubuntu',
                 ssh_pkey=ssh_key,
-                remote_bind_address=(ssh_host, port),
-                local_bind_address=('127.0.0.1', port)) as tunnel:
-            conn = pymysql.connect(host=host_, user=db_user,
-                    passwd=db_password, db=db_name,
+                remote_bind_address=(ssh_host, 3306),
+                local_bind_address=('127.0.0.1', 3306)) as tunnel:
+            conn = pymysql.connect(host='127.0.0.1', user='myapp',
+                    passwd='MyNewPass', db='sakila',
                     port=tunnel.local_bind_port)
             received = pd.read_sql_query(query, conn)
             conn.close()
@@ -249,5 +251,3 @@ secret_access_key = lines[2].split('=')[1]
 session_token = lines[3].split('=')[1]
 
 ssh_connect_and_execute_except_last(c, DNS_public_addresses["Proxy"], k, create_commands_flask(key, access_key_id, secret_access_key, session_token), IP_addresses["Proxy"])
-
-time.sleep(10)
