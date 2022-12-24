@@ -78,7 +78,7 @@ def hello():
 def query_database():
     instance_master = ec2_CLIENT.describe_instances(Filters=[{'Name': 'tag:Name', 'Values': ['mySQL_Cluster_Master']}, {'Name': 'instance-state-name', 'Values': ['running']}])
     Master_ip = instance_master['Reservations'][0]['Instances'][0]['PublicIpAddress']
-    print(Master_ip)
+    
     # Parse the request data
     data = request.get_json()
     mode = data['mode']
@@ -108,14 +108,14 @@ def query_database():
         i = random.randint(1, 3)
         instance_slave = ec2_CLIENT.describe_instances(Filters=[{'Name': 'tag:Name', 'Values': [f'mySQL_Cluster_Slave_{i}']}, {'Name': 'instance-state-name', 'Values': ['running']}])
         Slave_ip = instance_slave['Reservations'][0]['Instances'][0]['PublicIpAddress']
-        print(Slave_ip)
+        
         with SSHTunnelForwarder(
-                (ssh_host, 22),
+                (Slave_ip, 22),
                 ssh_username=ssh_user,
                 ssh_pkey=ssh_key,
-                remote_bind_address=(Slave_ip, 3306),
-                local_bind_address=('127.0.0.1', 3306)) as tunnel:
-            conn = pymysql.connect(host='localhost', user=db_user,
+                remote_bind_address=(ssh_host, port),
+                local_bind_address=('127.0.0.1', port)) as tunnel:
+            conn = pymysql.connect(host=host_, user=db_user,
                     passwd=db_password, db=db_name,
                     port=tunnel.local_bind_port)
             received = pd.read_sql_query(query, conn)
@@ -137,24 +137,15 @@ def query_database():
         instance_id_min = min(PINGS, key=PINGS.get)
         instance_ip=ec2_CLIENT.describe_instances(InstanceIds=[instance_id])['Reservations'][0]['Instances'][0]['PublicIpAddress']
         with SSHTunnelForwarder(
-                (ssh_host, 22),
+                (Slave_ip, 22),
                 ssh_username=ssh_user,
                 ssh_pkey=ssh_key,
-                remote_bind_address=(instance_ip, port)) as tunnel:
+                remote_bind_address=(ssh_host, port),
+                local_bind_address=('127.0.0.1', port)) as tunnel:
             conn = pymysql.connect(host=host_, user=db_user,
                     passwd=db_password, db=db_name,
-                    port=tunnel.local_bind_port,
-                    charset='utf8mb4',
-                    cursorclass=pymysql.cursors.DictCursor)
-
-            cursor = conn.cursor()
-            cursor.execute(query)
-
-            # Fetch the results of the query
-            received = cursor.fetchall()
-
-            # Close the cursor and connection
-            cursor.close()
+                    port=tunnel.local_bind_port)
+            received = pd.read_sql_query(query, conn)
             conn.close()
 
     # Return the query result
@@ -204,8 +195,8 @@ def ssh_connect_and_execute_except_last(paramiko_client, DNS_public_address, par
         time.sleep(5)
         
         # The last command to be executed does not send anything to stdout, so we don't read it not to be stuck
-    # print("Executing {}".format( commands[-1] ))
-    # stdin , stdout, stderr = paramiko_client.exec_command(commands[-1])
+    print("Executing {}".format( commands[-1] ))
+    stdin , stdout, stderr = paramiko_client.exec_command(commands[-1])
     print("Go to http://"+str(IP_address))
     time.sleep(10)
 
